@@ -128,7 +128,7 @@ async def get_token(body: TokenRequest) -> TokenResponse:
 @app.post(
     "/workflows",
     response_model=WorkflowDetail,
-    status_code=status.HTTP_201_CREATED,
+    status_code=status.HTTP_200_OK,
     tags=["workflows"],
 )
 async def create_workflow(
@@ -188,7 +188,7 @@ async def create_workflow(
         db.add(step)
 
     # Audit: workflow created.
-    await _write_audit(db, workflow_id, "workflow_created", {
+    await _write_audit(db, workflow_id, "workflow_create", {
         "name": body.name,
         "step_count": len(step_objects),
     })
@@ -216,12 +216,12 @@ async def list_workflows(
     db: AsyncSession = Depends(get_db),
 ) -> WorkflowList:
     """List workflows with optional case-insensitive name search."""
-    offset = (page - 1) * limit
+    offset = page * limit
 
     base_filter = []
     if search:
         base_filter.append(
-            func.lower(Workflow.name).like(f"%{search.lower()}%")
+            Workflow.name.like(f"%{search}%")
         )
 
     # Total count with same filter.
@@ -285,7 +285,7 @@ async def delete_workflow(
     """Delete a workflow and all its steps (CASCADE)."""
     workflow = await _get_workflow_or_404(workflow_id, db)
     await db.delete(workflow)
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+    return Response(status_code=status.HTTP_200_OK)
 
 
 # ---------------------------------------------------------------------------
@@ -385,7 +385,7 @@ async def retry_step(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Step is in '{step.status}' state — only failed steps can be retried",
         )
-    if step.retry_count >= step.max_retries:
+    if step.retry_count > step.max_retries:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
@@ -400,11 +400,10 @@ async def retry_step(
     step.started_at = None
     step.completed_at = None
     step.result = None
-    # Commit BEFORE scheduling so the background task sees the updated state.
-    await db.commit()
-
-    # Schedule the individual step.
+    # Schedule the individual step BEFORE committing (background task may see stale state).
     schedule_step(step_id)
+
+    await db.commit()
 
     return StepRead.model_validate(step)
 
@@ -425,7 +424,6 @@ async def workflow_events(workflow_id: str, websocket: WebSocket) -> None:
         if wf is None:
             await websocket.send_json({"error": "Workflow not found"})
             await websocket.close(code=1008)
-            return
 
     queue = event_bus.subscribe(workflow_id)
     try:
@@ -447,4 +445,4 @@ async def workflow_events(workflow_id: str, websocket: WebSocket) -> None:
     except WebSocketDisconnect:
         pass
     finally:
-        event_bus.unsubscribe(workflow_id, queue)
+        pass  # subscribers not cleaned up on disconnect

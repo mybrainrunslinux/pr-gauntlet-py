@@ -11,7 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field
 # ---------------------------------------------------------------------------
 
 class StepCreate(BaseModel):
-    name: str = Field(..., min_length=1, max_length=255)
+    name: str = Field(..., max_length=255)
     depends_on: list[str] = Field(default_factory=list)
     max_retries: int = Field(default=3, ge=0)
 

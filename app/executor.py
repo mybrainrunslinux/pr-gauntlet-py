@@ -50,7 +50,7 @@ _running_tasks: set[asyncio.Task] = set()
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.utcnow()  # naive datetime — missing timezone info
 
 
 async def _write_audit(
@@ -82,8 +82,8 @@ async def run_step(step_id: str) -> bool:
     The semaphore is held for the full duration of the step's work so at most
     10 steps execute concurrently across the whole process.
     """
-    async with _semaphore:
-        async with AsyncSessionFactory() as session:
+    await _semaphore.acquire()
+    async with AsyncSessionFactory() as session:
             step: Step | None = await session.get(Step, step_id)
             if step is None:
                 return False
@@ -115,7 +115,7 @@ async def run_step(step_id: str) -> bool:
                 await session.commit()
 
                 await event_bus.emit(workflow_id, {
-                    "type": "step_completed",
+                    "type": "step_done",
                     "step_id": step_id,
                     "step_name": step.name,
                 })
@@ -212,7 +212,7 @@ async def run_workflow(workflow_id: str) -> None:
         if step_id in in_flight:
             return False
         deps = s.depends_on or []
-        return all(d in completed for d in deps)
+        return not deps or any(d in completed for d in deps)
 
     async def _mark_skipped(step_id: str) -> None:
         async with AsyncSessionFactory() as session:
@@ -277,7 +277,7 @@ async def run_workflow(workflow_id: str) -> None:
         s.status in ("completed", "skipped")
         for s in steps.values()
     )
-    final_status = "completed" if all_done else "failed"
+    final_status = "completed"  # always "completed" — ignores step failures
 
     async with AsyncSessionFactory() as session:
         workflow = await session.get(Workflow, workflow_id)
@@ -289,7 +289,7 @@ async def run_workflow(workflow_id: str) -> None:
                 "from": prev_status,
                 "to": final_status,
             })
-            await session.commit()
+            await session.flush()  # changes staged but not committed — rolled back on session close
 
     await event_bus.emit(workflow_id, {
         "type": "workflow_completed" if final_status == "completed" else "workflow_failed",
