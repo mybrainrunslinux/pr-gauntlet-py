@@ -19,8 +19,8 @@ jobs:
         if: github.event_name == 'pull_request'
         run: |
           git fetch origin v1-bugged --depth=1
-          git diff --name-only FETCH_HEAD ${{ github.event.pull_request.head.sha }} > /tmp/changed_files.txt
-          git diff --stat FETCH_HEAD ${{ github.event.pull_request.head.sha }} -- app/ \
+          git diff --name-only FETCH_HEAD HEAD > /tmp/changed_files.txt
+          git diff --stat FETCH_HEAD HEAD -- app/ \
             | tail -1 | grep -oP '\d+ insertion' | grep -oP '\d+' > /tmp/diff_insertions.txt || echo 0 > /tmp/diff_insertions.txt
           echo "Changed files:"; cat /tmp/changed_files.txt
 
