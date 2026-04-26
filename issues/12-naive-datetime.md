@@ -29,7 +29,4 @@ All datetime values use timezone-aware UTC: `datetime.now(timezone.utc)`.
 
 ## Steps to Fix
 
-1. Read `app/executor.py` and understand the bug described above.
-2. Apply the minimal fix — only edit files in `app/`.
-3. Validate: `python -m pytest scoring/test_issues.py::test_12_naive_datetime -v`
-4. Confirm the test passes before submitting.
+- In `app/executor.py`, replace datetime.utcnow() with datetime.now(timezone.utc) throughout executor.py. Verify with: `python -m pytest scoring/test_issues.py::test_12_naive_datetime -v` (must fail before fix, pass after).

@@ -27,7 +27,4 @@ The executor emits `"step_done"`. No subscriber listens for this; the workflow h
 
 ## Steps to Fix
 
-1. Read `app/executor.py` and understand the bug described above.
-2. Apply the minimal fix — only edit files in `app/`.
-3. Validate: `python -m pytest scoring/test_issues.py::test_14_event_type -v`
-4. Confirm the test passes before submitting.
+- In `app/executor.py`, change the event_bus.emit type from step_done to step_completed. Verify with: `python -m pytest scoring/test_issues.py::test_14_event_type -v` (must fail before fix, pass after).

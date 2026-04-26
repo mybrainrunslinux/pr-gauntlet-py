@@ -31,7 +31,4 @@ The subscription is never removed. Repeated connects/disconnects accumulate stal
 
 ## Steps to Fix
 
-1. Read `app/main.py` and understand the bug described above.
-2. Apply the minimal fix — only edit files in `app/`.
-3. Validate: `python -m pytest scoring/test_issues.py::test_05_websocket_unsubscribe -v`
-4. Confirm the test passes before submitting.
+- In `app/main.py`, add event_bus.unsubscribe(workflow_id, queue) in the websocket finally block. Verify with: `python -m pytest scoring/test_issues.py::test_05_websocket_unsubscribe -v` (must fail before fix, pass after).

@@ -26,7 +26,4 @@ The handler continues to the next loop iteration and raises an error attempting 
 
 ## Steps to Fix
 
-1. Read `app/main.py` and understand the bug described above.
-2. Apply the minimal fix — only edit files in `app/`.
-3. Validate: `python -m pytest scoring/test_issues.py::test_07_ws_close -v`
-4. Confirm the test passes before submitting.
+- In `app/main.py`, wrap the websocket receive_text() call in a broad except Exception handler. Verify with: `python -m pytest scoring/test_issues.py::test_07_ws_close -v` (must fail before fix, pass after).

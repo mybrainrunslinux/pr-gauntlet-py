@@ -30,7 +30,4 @@ Returns **200 OK** with a JSON message body.
 
 ## Steps to Fix
 
-1. Read `app/main.py` and understand the bug described above.
-2. Apply the minimal fix — only edit files in `app/`.
-3. Validate: `python -m pytest scoring/test_issues.py::test_04_delete_status -v`
-4. Confirm the test passes before submitting.
+- In `app/main.py`, change the status_code on the DELETE /workflows response from 200 to 204. Verify with: `python -m pytest scoring/test_issues.py::test_04_delete_status -v` (must fail before fix, pass after).

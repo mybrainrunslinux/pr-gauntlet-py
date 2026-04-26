@@ -26,7 +26,4 @@ The job is enqueued before the commit, creating a window where the scheduler fir
 
 ## Steps to Fix
 
-1. Read `app/main.py` and understand the bug described above.
-2. Apply the minimal fix — only edit files in `app/`.
-3. Validate: `python -m pytest scoring/test_issues.py::test_08_schedule_order -v`
-4. Confirm the test passes before submitting.
+- In `app/main.py`, add scheduled_at field to the Workflow model and ensure it is flushed/committed on create. Verify with: `python -m pytest scoring/test_issues.py::test_08_schedule_order -v` (must fail before fix, pass after).

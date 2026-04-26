@@ -29,7 +29,4 @@ Records are stored with `event_type == "workflw_delete"` (typo), breaking all co
 
 ## Steps to Fix
 
-1. Read `app/main.py` and understand the bug described above.
-2. Apply the minimal fix — only edit files in `app/`.
-3. Validate: `python -m pytest scoring/test_issues.py::test_09_audit_typo -v`
-4. Confirm the test passes before submitting.
+- In `app/main.py`, fix the typo workflw_delete to workflow_delete in the audit log event type. Verify with: `python -m pytest scoring/test_issues.py::test_09_audit_typo -v` (must fail before fix, pass after).

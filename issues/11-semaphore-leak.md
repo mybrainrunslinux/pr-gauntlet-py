@@ -26,7 +26,4 @@ After `MAX_CONCURRENT_STEPS` total executions across all workflows, all further 
 
 ## Steps to Fix
 
-1. Read `app/executor.py` and understand the bug described above.
-2. Apply the minimal fix — only edit files in `app/`.
-3. Validate: `python -m pytest scoring/test_issues.py::test_11_semaphore_leak -v`
-4. Confirm the test passes before submitting.
+- In `app/executor.py`, replace the bare _semaphore.acquire() call with async with _semaphore: to ensure it is always released. Verify with: `python -m pytest scoring/test_issues.py::test_11_semaphore_leak -v` (must fail before fix, pass after).

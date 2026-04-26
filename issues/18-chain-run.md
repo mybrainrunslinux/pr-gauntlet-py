@@ -33,7 +33,4 @@ This issue shares a root cause with issues #16–20. Fix the root once and all f
 
 ## Steps to Fix
 
-1. Read `app/executor.py` and understand the bug described above.
-2. Apply the minimal fix — only edit files in `app/`.
-3. Validate: `python -m pytest scoring/test_issues.py::test_18_chain_run -v`
-4. Confirm the test passes before submitting.
+- In `app/executor.py`, change session.flush() to session.commit() in the final workflow status update block. Verify with: `python -m pytest scoring/test_issues.py::test_18_chain_run -v` (must fail before fix, pass after).

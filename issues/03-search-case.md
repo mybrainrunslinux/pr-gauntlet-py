@@ -31,7 +31,4 @@ Only exact-case matches are returned. `"deploy"` does not match `"Deploy Pipelin
 
 ## Steps to Fix
 
-1. Read `app/main.py` and understand the bug described above.
-2. Apply the minimal fix — only edit files in `app/`.
-3. Validate: `python -m pytest scoring/test_issues.py::test_03_search_case -v`
-4. Confirm the test passes before submitting.
+- In `app/main.py`, change .like() to .ilike() in the workflow name search filter. Verify with: `python -m pytest scoring/test_issues.py::test_03_search_case -v` (must fail before fix, pass after).

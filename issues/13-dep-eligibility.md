@@ -28,7 +28,4 @@ The step starts after either A or B completes — whichever finishes first.
 
 ## Steps to Fix
 
-1. Read `app/executor.py` and understand the bug described above.
-2. Apply the minimal fix — only edit files in `app/`.
-3. Validate: `python -m pytest scoring/test_issues.py::test_13_dep_eligibility -v`
-4. Confirm the test passes before submitting.
+- In `app/executor.py`, change the DAG eligibility check from any(d in completed for d in deps) to all(d in completed for d in deps). Verify with: `python -m pytest scoring/test_issues.py::test_13_dep_eligibility -v` (must fail before fix, pass after).

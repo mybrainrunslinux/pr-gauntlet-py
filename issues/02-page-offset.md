@@ -27,7 +27,4 @@ Page 1 returns items starting at offset `limit` (skipping the entire first page)
 
 ## Steps to Fix
 
-1. Read `app/main.py` and understand the bug described above.
-2. Apply the minimal fix — only edit files in `app/`.
-3. Validate: `python -m pytest scoring/test_issues.py::test_02_page_offset -v`
-4. Confirm the test passes before submitting.
+- In `app/main.py`, fix the pagination offset calculation from page*limit to (page-1)*limit. Verify with: `python -m pytest scoring/test_issues.py::test_02_page_offset -v` (must fail before fix, pass after).

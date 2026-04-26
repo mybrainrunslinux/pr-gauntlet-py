@@ -28,7 +28,4 @@ Empty step names are accepted and persisted.
 
 ## Steps to Fix
 
-1. Read `app/schemas.py` and understand the bug described above.
-2. Apply the minimal fix — only edit files in `app/`.
-3. Validate: `python -m pytest scoring/test_issues.py::test_10_min_length -v`
-4. Confirm the test passes before submitting.
+- In `app/schemas.py`, add min_length=1 constraint to the step name field in the Pydantic schema. Verify with: `python -m pytest scoring/test_issues.py::test_10_min_length -v` (must fail before fix, pass after).
