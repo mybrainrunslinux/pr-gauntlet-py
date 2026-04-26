@@ -27,3 +27,10 @@ curl -s -o /dev/null -w "%{http_code}" -X DELETE http://localhost:8000/workflows
 ## Actual Behavior
 
 Returns **200 OK** with a JSON message body.
+
+## Steps to Fix
+
+1. Read `app/main.py` and understand the bug described above.
+2. Apply the minimal fix — only edit files in `app/`.
+3. Validate: `python -m pytest scoring/test_issues.py::test_04_delete_status -v`
+4. Confirm the test passes before submitting.

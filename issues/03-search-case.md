@@ -28,3 +28,10 @@ Search is case-insensitive: `"deploy"` matches `"Deploy Pipeline"`, `"DEPLOY"`, 
 ## Actual Behavior
 
 Only exact-case matches are returned. `"deploy"` does not match `"Deploy Pipeline"`.
+
+## Steps to Fix
+
+1. Read `app/main.py` and understand the bug described above.
+2. Apply the minimal fix — only edit files in `app/`.
+3. Validate: `python -m pytest scoring/test_issues.py::test_03_search_case -v`
+4. Confirm the test passes before submitting.

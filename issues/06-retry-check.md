@@ -24,3 +24,10 @@ A step with `max_retries=N` is retried at most N times total, then marked as per
 ## Actual Behavior
 
 The step is retried N+1 times before being marked failed.
+
+## Steps to Fix
+
+1. Read `app/main.py` and understand the bug described above.
+2. Apply the minimal fix — only edit files in `app/`.
+3. Validate: `python -m pytest scoring/test_issues.py::test_06_retry_check -v`
+4. Confirm the test passes before submitting.

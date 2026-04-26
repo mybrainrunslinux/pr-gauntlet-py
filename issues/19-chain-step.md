@@ -32,3 +32,10 @@ Steps can be added to any workflow that was successfully created.
 ## Chain Note
 
 This issue shares a root cause with issues #16–20. Fix the root once and all five resolve.
+
+## Steps to Fix
+
+1. Read `app/executor.py` and understand the bug described above.
+2. Apply the minimal fix — only edit files in `app/`.
+3. Validate: `python -m pytest scoring/test_issues.py::test_19_chain_step -v`
+4. Confirm the test passes before submitting.

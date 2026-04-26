@@ -28,3 +28,10 @@ print(steps2)  # Returns results — inconsistent depending on query style
 ## Actual Behavior
 
 `step.status = "completed"` — raw string breaks enum-based queries.
+
+## Steps to Fix
+
+1. Read `app/main.py` and understand the bug described above.
+2. Apply the minimal fix — only edit files in `app/`.
+3. Validate: `python -m pytest scoring/test_issues.py::test_15_step_status -v`
+4. Confirm the test passes before submitting.

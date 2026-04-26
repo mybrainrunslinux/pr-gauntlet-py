@@ -26,3 +26,10 @@ Audit log records for workflow deletion have `event_type == "workflow_delete"`.
 ## Actual Behavior
 
 Records are stored with `event_type == "workflw_delete"` (typo), breaking all consumers that filter by the correct event name.
+
+## Steps to Fix
+
+1. Read `app/main.py` and understand the bug described above.
+2. Apply the minimal fix — only edit files in `app/`.
+3. Validate: `python -m pytest scoring/test_issues.py::test_09_audit_typo -v`
+4. Confirm the test passes before submitting.

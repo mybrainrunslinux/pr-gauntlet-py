@@ -25,3 +25,10 @@ curl -X POST http://localhost:8000/workflows/$WF_ID/steps \
 ## Actual Behavior
 
 Empty step names are accepted and persisted.
+
+## Steps to Fix
+
+1. Read `app/schemas.py` and understand the bug described above.
+2. Apply the minimal fix — only edit files in `app/`.
+3. Validate: `python -m pytest scoring/test_issues.py::test_10_min_length -v`
+4. Confirm the test passes before submitting.

@@ -24,3 +24,10 @@ Page 1 returns the first `limit` items (offset 0). Page 2 returns the next batch
 ## Actual Behavior
 
 Page 1 returns items starting at offset `limit` (skipping the entire first page). Page 1 is always empty when the total item count equals `limit`.
+
+## Steps to Fix
+
+1. Read `app/main.py` and understand the bug described above.
+2. Apply the minimal fix — only edit files in `app/`.
+3. Validate: `python -m pytest scoring/test_issues.py::test_02_page_offset -v`
+4. Confirm the test passes before submitting.

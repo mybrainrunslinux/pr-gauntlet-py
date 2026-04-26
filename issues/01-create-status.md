@@ -24,3 +24,10 @@ curl -s -o /dev/null -w "%{http_code}" -X POST http://localhost:8000/workflows \
 ## Actual Behavior
 
 Returns **200 OK** — clients that check the status code to detect creation vs. update will malfunction.
+
+## Steps to Fix
+
+1. Read `app/main.py` and understand the bug described above.
+2. Apply the minimal fix — only edit files in `app/`.
+3. Validate: `python -m pytest scoring/test_issues.py::test_01_create_status -v`
+4. Confirm the test passes before submitting.

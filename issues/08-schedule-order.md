@@ -23,3 +23,10 @@ In the schedule endpoint, `workflow.scheduled_at` is set to `scheduled_time` bef
 ## Actual Behavior
 
 The job is enqueued before the commit, creating a window where the scheduler fires against uncommitted data.
+
+## Steps to Fix
+
+1. Read `app/main.py` and understand the bug described above.
+2. Apply the minimal fix — only edit files in `app/`.
+3. Validate: `python -m pytest scoring/test_issues.py::test_08_schedule_order -v`
+4. Confirm the test passes before submitting.

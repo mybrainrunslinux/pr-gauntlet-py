@@ -25,3 +25,10 @@ A step with dependencies `[A, B]` only starts after both A and B have completed.
 ## Actual Behavior
 
 The step starts after either A or B completes — whichever finishes first.
+
+## Steps to Fix
+
+1. Read `app/executor.py` and understand the bug described above.
+2. Apply the minimal fix — only edit files in `app/`.
+3. Validate: `python -m pytest scoring/test_issues.py::test_13_dep_eligibility -v`
+4. Confirm the test passes before submitting.

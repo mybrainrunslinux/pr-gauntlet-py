@@ -24,3 +24,10 @@ The executor emits `"step_complete"` so the DAG scheduler picks up the event and
 ## Actual Behavior
 
 The executor emits `"step_done"`. No subscriber listens for this; the workflow halts after the first step.
+
+## Steps to Fix
+
+1. Read `app/executor.py` and understand the bug described above.
+2. Apply the minimal fix — only edit files in `app/`.
+3. Validate: `python -m pytest scoring/test_issues.py::test_14_event_type -v`
+4. Confirm the test passes before submitting.

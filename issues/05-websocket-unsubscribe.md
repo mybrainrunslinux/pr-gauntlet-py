@@ -28,3 +28,10 @@ When a WebSocket client disconnects, its queue is removed from `event_bus` subsc
 ## Actual Behavior
 
 The subscription is never removed. Repeated connects/disconnects accumulate stale queue entries.
+
+## Steps to Fix
+
+1. Read `app/main.py` and understand the bug described above.
+2. Apply the minimal fix — only edit files in `app/`.
+3. Validate: `python -m pytest scoring/test_issues.py::test_05_websocket_unsubscribe -v`
+4. Confirm the test passes before submitting.

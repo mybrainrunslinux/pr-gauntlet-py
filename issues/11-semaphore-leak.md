@@ -23,3 +23,10 @@ Each step releases the semaphore on completion (success or failure), allowing th
 ## Actual Behavior
 
 After `MAX_CONCURRENT_STEPS` total executions across all workflows, all further steps block indefinitely. The system requires a restart to recover.
+
+## Steps to Fix
+
+1. Read `app/executor.py` and understand the bug described above.
+2. Apply the minimal fix — only edit files in `app/`.
+3. Validate: `python -m pytest scoring/test_issues.py::test_11_semaphore_leak -v`
+4. Confirm the test passes before submitting.

@@ -26,3 +26,10 @@ All datetime values use timezone-aware UTC: `datetime.now(timezone.utc)`.
 ## Actual Behavior
 
 `started_at` is naive; comparisons with aware datetimes raise `TypeError` at runtime.
+
+## Steps to Fix
+
+1. Read `app/executor.py` and understand the bug described above.
+2. Apply the minimal fix — only edit files in `app/`.
+3. Validate: `python -m pytest scoring/test_issues.py::test_12_naive_datetime -v`
+4. Confirm the test passes before submitting.

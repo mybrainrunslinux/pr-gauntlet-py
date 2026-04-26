@@ -23,3 +23,10 @@ After `websocket.close()`, the handler returns immediately with no further proce
 ## Actual Behavior
 
 The handler continues to the next loop iteration and raises an error attempting to read from the closed socket.
+
+## Steps to Fix
+
+1. Read `app/main.py` and understand the bug described above.
+2. Apply the minimal fix — only edit files in `app/`.
+3. Validate: `python -m pytest scoring/test_issues.py::test_07_ws_close -v`
+4. Confirm the test passes before submitting.
