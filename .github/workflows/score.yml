@@ -25,46 +25,8 @@ jobs:
       - name: Run scorer
         id: score
         run: |
-          python -m pytest scoring/test_issues.py -v --tb=no 2>&1 | tee /tmp/pytest_out.txt || true
-          python3 - <<'PYEOF'
-import re, json, sys
-
-CHAIN_ISSUES = set(range(16, 21))
-TEST_FILTERS = {
-    1:'create_status', 2:'page_offset', 3:'search_case',
-    4:'delete_status', 5:'websocket_unsubscribe', 6:'retry_check',
-    7:'ws_close', 8:'schedule_order', 9:'audit_typo',
-    10:'min_length', 11:'semaphore_leak', 12:'naive_datetime',
-    13:'dep_eligibility', 14:'event_type', 15:'step_status',
-    16:'chain_flush', 17:'chain_list', 18:'chain_run',
-    19:'chain_step', 20:'chain_schedule',
-}
-TIERS = {**{i:1 for i in range(1,6)}, **{i:2 for i in range(6,11)},
-         **{i:3 for i in range(11,16)}, **{i:4 for i in range(16,21)}}
-
-with open('/tmp/pytest_out.txt') as f:
-    txt = f.read()
-
-passed_fns = set(re.findall(r'PASSED\s+scoring/test_issues\.py::(test_\w+)', txt))
-
-results = []
-for num in range(1, 21):
-    tf = TEST_FILTERS[num]
-    fn = f'test_{num:02d}_{tf}'
-    passed = fn in passed_fns
-    results.append({'id': num, 'title': tf.replace('_','-'), 'tier': TIERS[num], 'passed': passed})
-
-fixed = sum(1 for r in results if r['passed'])
-chain_passed = sum(1 for i in CHAIN_ISSUES if results[i-1]['passed'])
-chain_bonus = 10 if chain_passed == 5 else (5 if chain_passed > 0 else 0)
-final_score = min(110, fixed * 5 + chain_bonus)
-
-out = {'fixed': fixed, 'total': 20, 'baseScore': fixed * 5,
-       'chainBonus': chain_bonus, 'finalScore': final_score, 'results': results}
-with open('/tmp/score.json', 'w') as f:
-    json.dump(out, f)
-print(json.dumps(out))
-PYEOF
+          python -m pytest scoring/test_issues.py -v --tb=no 2>&1 | python3 scoring/scorer.py > /tmp/score.json
+          cat /tmp/score.json
           echo "result<<EOF" >> $GITHUB_OUTPUT
           cat /tmp/score.json >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
@@ -89,8 +51,7 @@ PYEOF
             ).join('\n');
             const chainNote = chainBonus === 10
               ? 'Chain solved — root cause found, all 5 chain issues resolved!'
-              : chainBonus === 5 ? 'Partial chain (chain issues partially resolved)'
-              : 'Chain not solved';
+              : chainBonus === 5 ? 'Partial chain resolved' : 'Chain not solved';
             const lines = [
               `## PR-Gauntlet Score (py): ${finalScore}/110`,
               '',
@@ -102,7 +63,7 @@ PYEOF
               '|---|-------|------|--------|',
               rows,
               '',
-              'Run `python -m pytest scoring/test_issues.py -v` locally to debug individual issues.',
+              'Run `python -m pytest scoring/test_issues.py -v` locally to debug.',
               '',
               '_PRs are scored but not merged — `v1-bugged` stays frozen as the benchmark baseline._',
             ];
@@ -125,7 +86,6 @@ PYEOF
 
             const result = JSON.parse(process.env.SCORE_JSON);
             const { fixed, total, chainBonus } = result;
-
             const agent = context.payload.pull_request.head.ref;
             const date = new Date().toISOString().split('T')[0];
             const scoreStr = `${finalScore}/110`;
@@ -134,15 +94,10 @@ PYEOF
             let fileData;
             try {
               ({ data: fileData } = await github.rest.repos.getContent({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                path: 'LEADERBOARD.md',
-                ref: 'v1-bugged',
+                owner: context.repo.owner, repo: context.repo.repo,
+                path: 'LEADERBOARD.md', ref: 'v1-bugged',
               }));
-            } catch (e) {
-              console.log('Could not fetch LEADERBOARD.md:', e.message);
-              return;
-            }
+            } catch (e) { console.log('Could not fetch LEADERBOARD.md:', e.message); return; }
 
             const current = Buffer.from(fileData.content, 'base64').toString('utf8');
             const tableRe = /(\| Rank \|[^\n]+\n\|[-| ]+\|)((?:\n\|[^\n]+)*)/;
@@ -150,44 +105,31 @@ PYEOF
             if (!match) { console.log('Table not found'); return; }
 
             const existingRows = match[2].trim().split('\n').filter(r => r.trim().startsWith('|'));
-            const parseScore = row => {
-              const cols = row.split('|').map(c => c.trim()).filter(Boolean);
-              return parseInt((cols[5] || '').split('/')[0]) || 0;
-            };
+            const parseScore = row => parseInt((row.split('|').map(c=>c.trim()).filter(Boolean)[5]||'').split('/')[0])||0;
             const scores = existingRows.map(parseScore);
             const wouldRank = scores.filter(s => s > finalScore).length + 1;
-            if (wouldRank > 10) return;
+            if (wouldRank > 10) { console.log(`Rank #${wouldRank} outside top 10`); return; }
 
             const newRow = `| ${wouldRank} | ${agent} | Hard | ${fixed}/${total} | ${chainStr} | ${scoreStr} | — | ${date} |`;
-            const before = existingRows.slice(0, wouldRank - 1);
-            const after  = existingRows.slice(wouldRank - 1);
-            const reranked = [...before, newRow, ...after]
-              .slice(0, 10)
-              .map((row, i) => row.replace(/^\| \d+/, `| ${i + 1}`));
-
-            const updatedTable = match[1] + '\n' + reranked.join('\n');
-            const updated = current.replace(tableRe, updatedTable);
+            const reranked = [...existingRows.slice(0, wouldRank-1), newRow, ...existingRows.slice(wouldRank-1)]
+              .slice(0, 10).map((row, i) => row.replace(/^\| \d+/, `| ${i+1}`));
+            const updated = current.replace(tableRe, match[1] + '\n' + reranked.join('\n'));
             if (updated === current) { console.log('No change needed'); return; }
 
             try {
               await github.rest.repos.createOrUpdateFileContents({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
+                owner: context.repo.owner, repo: context.repo.repo,
                 path: 'LEADERBOARD.md',
                 message: `leaderboard: ${agent} scores ${scoreStr} (rank #${wouldRank})`,
                 content: Buffer.from(updated).toString('base64'),
-                sha: fileData.sha,
-                branch: 'v1-bugged',
+                sha: fileData.sha, branch: 'v1-bugged',
               });
               console.log(`Leaderboard updated — ${agent} at rank #${wouldRank}`);
-            } catch (e) {
-              console.log('Leaderboard update failed (race):', e.message);
-            }
+            } catch (e) { console.log('Leaderboard update failed (race):', e.message); }
 
             await github.rest.issues.createComment({
               issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
+              owner: context.repo.owner, repo: context.repo.repo,
               body: `**Leaderboard:** \`${agent}\` entered at **rank #${wouldRank}** with **${scoreStr}**!`,
             });
         env:
