@@ -15,12 +15,63 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Validate submission (PR only)
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const violations = [];
+
+            // Rate limit: 5 submissions per user per 24h
+            const user = pr.user.login;
+            const { data: allPRs } = await github.rest.pulls.list({
+              owner: context.repo.owner, repo: context.repo.repo,
+              state: 'all', per_page: 100,
+            });
+            const oneDayAgo = new Date(Date.now() - 86400000).toISOString();
+            const recent = allPRs.filter(p => p.user.login === user && p.created_at > oneDayAgo);
+            if (recent.length > 5) violations.push(`Rate limit: ${recent.length}/5 submissions in 24h`);
+
+            // File checks
+            const { data: files } = await github.rest.pulls.listFiles({
+              owner: context.repo.owner, repo: context.repo.repo,
+              pull_number: pr.number, per_page: 100,
+            });
+
+            // Only app/ allowed
+            const outOfScope = files.filter(f => !f.filename.startsWith('app/'));
+            if (outOfScope.length) violations.push(`Files outside app/: ${outOfScope.map(f=>f.filename).slice(0,5).join(', ')}`);
+
+            // Only .py files in app/
+            const wrongLang = files.filter(f => f.filename.startsWith('app/') && !f.filename.endsWith('.py'));
+            if (wrongLang.length) violations.push(`Non-.py files in app/: ${wrongLang.map(f=>f.filename).slice(0,5).join(', ')}`);
+
+            // File count
+            if (files.length > 50) violations.push(`Too many changed files: ${files.length} (max 50)`);
+
+            // Diff size
+            const totalChanges = files.reduce((s, f) => s + f.changes, 0);
+            if (totalChanges > 5000) violations.push(`Diff too large: ${totalChanges} lines changed (max 5000)`);
+
+            if (violations.length > 0) {
+              await github.rest.issues.createComment({
+                issue_number: pr.number,
+                owner: context.repo.owner, repo: context.repo.repo,
+                body: '## PR-Gauntlet: Submission Rejected\n\n' + violations.map(v=>`- ${v}`).join('\n') + '\n\n_Fix these issues and push again._',
+              });
+              core.setFailed(violations.join('; '));
+            }
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
       - name: Install dependencies
         run: pip install -r app/requirements.txt
+
+      - name: Lock scoring files to v1-bugged
+        run: git fetch origin v1-bugged && git checkout FETCH_HEAD -- scoring/
 
       - name: Run scorer
         id: score
