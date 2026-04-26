@@ -128,7 +128,7 @@ async def get_token(body: TokenRequest) -> TokenResponse:
 @app.post(
     "/workflows",
     response_model=WorkflowDetail,
-    status_code=status.HTTP_200_OK,
+    status_code=status.HTTP_201_CREATED,
     tags=["workflows"],
 )
 async def create_workflow(
@@ -149,6 +149,7 @@ async def create_workflow(
         name=body.name,
         description=body.description,
         status="pending",
+        scheduled_at=body.scheduled_at,
         created_at=now,
         updated_at=now,
     )
@@ -193,8 +194,8 @@ async def create_workflow(
         "step_count": len(step_objects),
     })
 
-    # get_db commits on success.
-    await db.flush()
+    # Commit first so any scheduler sees fully persisted state.
+    await db.commit()
 
     # Build response manually (relationships aren't auto-loaded in async).
     return WorkflowDetail(
@@ -202,6 +203,7 @@ async def create_workflow(
         name=workflow.name,
         description=workflow.description,
         status=workflow.status,
+        scheduled_at=workflow.scheduled_at,
         created_at=workflow.created_at,
         updated_at=workflow.updated_at,
         steps=[StepRead.model_validate(s) for s in step_objects],
@@ -216,12 +218,12 @@ async def list_workflows(
     db: AsyncSession = Depends(get_db),
 ) -> WorkflowList:
     """List workflows with optional case-insensitive name search."""
-    offset = page * limit
+    offset = (page - 1) * limit
 
     base_filter = []
     if search:
         base_filter.append(
-            Workflow.name.like(f"%{search}%")
+            Workflow.name.ilike(f"%{search}%")
         )
 
     # Total count with same filter.
@@ -266,6 +268,7 @@ async def get_workflow(
         name=workflow.name,
         description=workflow.description,
         status=workflow.status,
+        scheduled_at=workflow.scheduled_at,
         created_at=workflow.created_at,
         updated_at=workflow.updated_at,
         steps=[StepRead.model_validate(s) for s in steps],
@@ -285,7 +288,9 @@ async def delete_workflow(
     """Delete a workflow and all its steps (CASCADE)."""
     workflow = await _get_workflow_or_404(workflow_id, db)
     await db.delete(workflow)
-    return Response(status_code=status.HTTP_200_OK)
+    await _write_audit(db, workflow_id, "workflow_delete", {})
+    await db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 # ---------------------------------------------------------------------------
@@ -335,14 +340,17 @@ async def run_workflow(
 )
 async def list_steps(
     workflow_id: str,
+    status: Optional[str] = Query(default=None),
     db: AsyncSession = Depends(get_db),
 ) -> list[StepRead]:
     """List all steps for a workflow."""
     await _get_workflow_or_404(workflow_id, db)
 
-    result = await db.execute(
-        select(Step).where(Step.workflow_id == workflow_id)
-    )
+    filters = [Step.workflow_id == workflow_id]
+    if status is not None:
+        filters.append(Step.status == status)
+
+    result = await db.execute(select(Step).where(*filters))
     steps = result.scalars().all()
     return [StepRead.model_validate(s) for s in steps]
 
@@ -385,7 +393,7 @@ async def retry_step(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Step is in '{step.status}' state — only failed steps can be retried",
         )
-    if step.retry_count > step.max_retries:
+    if step.retry_count >= step.max_retries:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
@@ -400,10 +408,8 @@ async def retry_step(
     step.started_at = None
     step.completed_at = None
     step.result = None
-    # Schedule the individual step BEFORE committing (background task may see stale state).
-    schedule_step(step_id)
-
     await db.commit()
+    schedule_step(step_id)
 
     return StepRead.model_validate(step)
 
@@ -424,6 +430,7 @@ async def workflow_events(workflow_id: str, websocket: WebSocket) -> None:
         if wf is None:
             await websocket.send_json({"error": "Workflow not found"})
             await websocket.close(code=1008)
+            return
 
     queue = event_bus.subscribe(workflow_id)
     try:
@@ -442,7 +449,10 @@ async def workflow_events(workflow_id: str, websocket: WebSocket) -> None:
                     await asyncio.wait_for(websocket.receive_text(), timeout=0.1)
                 except asyncio.TimeoutError:
                     pass  # normal: no message yet
+                except Exception:
+                    await websocket.close()
+                    return
     except WebSocketDisconnect:
         pass
     finally:
-        pass  # subscribers not cleaned up on disconnect
+        event_bus.unsubscribe(workflow_id, queue)
