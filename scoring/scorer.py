@@ -16,7 +16,7 @@ TIERS = {**{i:1 for i in range(1,6)}, **{i:2 for i in range(6,11)},
          **{i:3 for i in range(11,16)}, **{i:4 for i in range(16,21)}}
 
 txt = sys.stdin.read()
-passed_fns = set(re.findall(r'PASSED\s+scoring/test_issues\.py::(test_\w+)', txt))
+passed_fns = set(re.findall(r'scoring/test_issues\.py::(test_\w+)\s+PASSED', txt))
 
 results = []
 for num in range(1, 21):
