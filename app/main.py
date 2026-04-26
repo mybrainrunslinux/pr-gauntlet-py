@@ -128,7 +128,7 @@ async def get_token(body: TokenRequest) -> TokenResponse:
 @app.post(
     "/workflows",
     response_model=WorkflowDetail,
-    status_code=status.HTTP_200_OK,
+    status_code=status.HTTP_201_CREATED,
     tags=["workflows"],
 )
 async def create_workflow(
@@ -193,8 +193,8 @@ async def create_workflow(
         "step_count": len(step_objects),
     })
 
-    # get_db commits on success.
     await db.flush()
+    await db.commit()
 
     # Build response manually (relationships aren't auto-loaded in async).
     return WorkflowDetail(
@@ -216,7 +216,7 @@ async def list_workflows(
     db: AsyncSession = Depends(get_db),
 ) -> WorkflowList:
     """List workflows with optional case-insensitive name search."""
-    offset = page * limit
+    offset = (page - 1) * limit
 
     base_filter = []
     if search:
@@ -284,8 +284,10 @@ async def delete_workflow(
 ) -> Response:
     """Delete a workflow and all its steps (CASCADE)."""
     workflow = await _get_workflow_or_404(workflow_id, db)
-    await db.delete(workflow)
-    return Response(status_code=status.HTTP_200_OK)
+    await _write_audit(db, workflow_id, "workflow_delete", {
+        "name": workflow.name,
+    })
+    await db.commit()
 
 
 # ---------------------------------------------------------------------------
@@ -445,4 +447,4 @@ async def workflow_events(workflow_id: str, websocket: WebSocket) -> None:
     except WebSocketDisconnect:
         pass
     finally:
-        pass  # subscribers not cleaned up on disconnect
+        event_bus.unsubscribe(workflow_id, queue)
