@@ -55,11 +55,17 @@ get_slug() {
 ensure_branch() {
     local branch
     branch=$(git rev-parse --abbrev-ref HEAD)
+    # On master (default clone) — switch to v1-bugged first
+    if [[ "$branch" == "master" || "$branch" == "main" ]]; then
+        echo "Switching to v1-bugged (competition baseline)..."
+        git checkout v1-bugged
+        branch="v1-bugged"
+    fi
     if [[ "$branch" == "v1-bugged" ]]; then
         local slug arena_branch
         slug=$(get_slug)
         arena_branch="arena-${slug}"
-        echo "Creating branch: $arena_branch"
+        echo "Creating arena branch: $arena_branch"
         git checkout -b "$arena_branch"
     fi
 }
