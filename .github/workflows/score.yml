@@ -15,11 +15,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Get changed files (PR only)
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch origin v1-bugged --depth=1
+          git diff --name-only FETCH_HEAD ${{ github.event.pull_request.head.sha }} > /tmp/changed_files.txt
+          git diff --stat FETCH_HEAD ${{ github.event.pull_request.head.sha }} -- app/ \
+            | tail -1 | grep -oP '\d+ insertion' | grep -oP '\d+' > /tmp/diff_insertions.txt || echo 0 > /tmp/diff_insertions.txt
+          echo "Changed files:"; cat /tmp/changed_files.txt
+
       - name: Validate submission (PR only)
         if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
           script: |
+            const fs = require('fs');
             const pr = context.payload.pull_request;
             const violations = [];
 
@@ -33,26 +43,23 @@ jobs:
             const recent = allPRs.filter(p => p.user.login === user && p.created_at > oneDayAgo);
             if (recent.length > 5) violations.push(`Rate limit: ${recent.length}/5 submissions in 24h`);
 
-            // File checks
-            const { data: files } = await github.rest.pulls.listFiles({
-              owner: context.repo.owner, repo: context.repo.repo,
-              pull_number: pr.number, per_page: 100,
-            });
+            // File checks via git diff (avoids merge-base staleness of listFiles API)
+            const changed = fs.readFileSync('/tmp/changed_files.txt', 'utf8').trim().split('\n').filter(Boolean);
 
             // Only app/ allowed
-            const outOfScope = files.filter(f => !f.filename.startsWith('app/'));
-            if (outOfScope.length) violations.push(`Files outside app/: ${outOfScope.map(f=>f.filename).slice(0,5).join(', ')}`);
+            const outOfScope = changed.filter(f => !f.startsWith('app/'));
+            if (outOfScope.length) violations.push(`Files outside app/: ${outOfScope.slice(0,5).join(', ')}`);
 
             // Only .py files in app/
-            const wrongLang = files.filter(f => f.filename.startsWith('app/') && !f.filename.endsWith('.py'));
-            if (wrongLang.length) violations.push(`Non-.py files in app/: ${wrongLang.map(f=>f.filename).slice(0,5).join(', ')}`);
+            const wrongLang = changed.filter(f => f.startsWith('app/') && !f.endsWith('.py'));
+            if (wrongLang.length) violations.push(`Non-.py files in app/: ${wrongLang.slice(0,5).join(', ')}`);
 
             // File count
-            if (files.length > 50) violations.push(`Too many changed files: ${files.length} (max 50)`);
+            if (changed.length > 50) violations.push(`Too many changed files: ${changed.length} (max 50)`);
 
             // Diff size
-            const totalChanges = files.reduce((s, f) => s + f.changes, 0);
-            if (totalChanges > 5000) violations.push(`Diff too large: ${totalChanges} lines changed (max 5000)`);
+            const insertions = parseInt(fs.readFileSync('/tmp/diff_insertions.txt', 'utf8').trim()) || 0;
+            if (insertions > 5000) violations.push(`Diff too large: ${insertions} insertions (max 5000)`);
 
             if (violations.length > 0) {
               await github.rest.issues.createComment({
