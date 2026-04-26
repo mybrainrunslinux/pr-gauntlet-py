@@ -5,9 +5,12 @@ Each test MUST:
   - PASS on v0-clean (or after the correct fix is applied)
 """
 
+import pathlib
 import time
 import httpx
 import pytest
+
+_APP_DIR = pathlib.Path(__file__).parent.parent / "app"
 
 
 # ── Tier 1: Clear ────────────────────────────────��─────────────────────────���───
@@ -25,7 +28,7 @@ def test_01_create_status(client, auth_headers):
 def test_02_page_offset(client, auth_headers, make_workflow):
     """Page 1 with limit=1 must return 1 item — offset bug (page*limit) skips it."""
     import pathlib
-    src = pathlib.Path("/home/peter/dev/pr-gauntlet-py/app/main.py").read_text()
+    src = (_APP_DIR / "main.py").read_text()
     # Buggy: offset = page * limit  (page=1, limit=5 → skip 5)
     # Fixed: offset = (page - 1) * limit
     assert "(page - 1) * limit" in src or "page * limit" not in src, \
@@ -35,7 +38,7 @@ def test_02_page_offset(client, auth_headers, make_workflow):
 def test_03_search_case(client, auth_headers, make_workflow):
     """Case-insensitive search: list_workflows must use ilike, not like."""
     import pathlib
-    src = pathlib.Path("/home/peter/dev/pr-gauntlet-py/app/main.py").read_text()
+    src = (_APP_DIR / "main.py").read_text()
     # Buggy: Workflow.name.like(...)
     # Fixed: Workflow.name.ilike(...)
     assert ".ilike(" in src or ".like(" not in src, \
@@ -52,7 +55,7 @@ def test_04_delete_status(client, auth_headers, make_workflow):
 def test_05_websocket_unsubscribe(server, make_workflow):
     """WS disconnect must clean up subscriber queue — no dangling reference."""
     import pathlib
-    src = pathlib.Path("/home/peter/dev/pr-gauntlet-py/app/main.py").read_text()
+    src = (_APP_DIR / "main.py").read_text()
     # Buggy: finally: pass  (subscriber never cleaned up)
     # Fixed: finally: event_bus.unsubscribe(workflow_id, queue)
     assert "event_bus.unsubscribe" in src or "finally:\n        pass" not in src, \
@@ -82,7 +85,7 @@ def test_06_retry_check(client, auth_headers, make_workflow):
     # We can't easily force the step to "failed" without running it,
     # so we test the boundary via source check
     import re, pathlib
-    src = pathlib.Path("/home/peter/dev/pr-gauntlet-py/app/main.py").read_text()
+    src = (_APP_DIR / "main.py").read_text()
     # Fixed code: >= max_retries; buggy code: > max_retries
     assert "retry_count >= step.max_retries" in src or \
            "retry_count > step.max_retries" not in src, \
@@ -92,7 +95,7 @@ def test_06_retry_check(client, auth_headers, make_workflow):
 def test_07_ws_close(server, make_workflow):
     """WS handler must catch exceptions from client messages to prevent crashes."""
     import pathlib
-    src = pathlib.Path("/home/peter/dev/pr-gauntlet-py/app/main.py").read_text()
+    src = (_APP_DIR / "main.py").read_text()
     # Buggy: receive_text() not wrapped in try/except for non-disconnect exceptions
     # Fixed: wrap the receive in try/except Exception
     # The handler already catches TimeoutError but not other errors (json parse, etc.)
@@ -130,7 +133,7 @@ def test_08_schedule_order(client, auth_headers, make_workflow):
 def test_09_audit_typo(client, auth_headers, make_workflow):
     """Audit log event type for delete must be 'workflow_delete', not a typo."""
     import re, pathlib
-    src = pathlib.Path("/home/peter/dev/pr-gauntlet-py/app/main.py").read_text()
+    src = (_APP_DIR / "main.py").read_text()
     assert "workflw_delete" not in src, \
         "Typo 'workflw_delete' found in audit log event type"
     assert "workflow_delete" in src, \
@@ -158,7 +161,7 @@ def test_10_min_length(client, auth_headers):
 def test_11_semaphore_leak(client, auth_headers):
     """Semaphore must be released — leak prevents concurrent execution."""
     import pathlib
-    src = pathlib.Path("/home/peter/dev/pr-gauntlet-py/app/executor.py").read_text()
+    src = (_APP_DIR / "executor.py").read_text()
     # Fixed code uses 'async with _semaphore:' or calls _semaphore.release()
     leak = "_semaphore.acquire()" in src and "_semaphore.release()" not in src \
            and "async with _semaphore" not in src
@@ -168,7 +171,7 @@ def test_11_semaphore_leak(client, auth_headers):
 def test_12_naive_datetime(client, auth_headers, make_workflow):
     """Executor must use timezone-aware datetimes (datetime.now(utc) not utcnow())."""
     import pathlib
-    src = pathlib.Path("/home/peter/dev/pr-gauntlet-py/app/executor.py").read_text()
+    src = (_APP_DIR / "executor.py").read_text()
     # Buggy: datetime.utcnow()  → naive datetime (deprecated, breaks tz-aware comparisons)
     # Fixed: datetime.now(timezone.utc) → timezone-aware
     assert "datetime.utcnow()" not in src, \
@@ -178,7 +181,7 @@ def test_12_naive_datetime(client, auth_headers, make_workflow):
 def test_13_dep_eligibility(client, auth_headers):
     """Step C with depends_on=[A, B] must wait for BOTH A and B (all, not any)."""
     import pathlib
-    src = pathlib.Path("/home/peter/dev/pr-gauntlet-py/app/executor.py").read_text()
+    src = (_APP_DIR / "executor.py").read_text()
     # Buggy: any(d in completed for d in deps)
     # Fixed: all(d in completed for d in deps)
     assert "all(d in completed for d in deps)" in src or \
@@ -189,7 +192,7 @@ def test_13_dep_eligibility(client, auth_headers):
 def test_14_event_type(client, auth_headers, make_workflow):
     """WS event for step completion must use 'step_completed', not 'step_done'."""
     import pathlib
-    src = pathlib.Path("/home/peter/dev/pr-gauntlet-py/app/executor.py").read_text()
+    src = (_APP_DIR / "executor.py").read_text()
     # Buggy: event_bus.emit sends "type": "step_done"
     # Fixed: event_bus.emit sends "type": "step_completed"
     assert '"type": "step_done"' not in src, \
@@ -199,7 +202,7 @@ def test_14_event_type(client, auth_headers, make_workflow):
 def test_15_step_status(client, auth_headers, make_workflow):
     """list_steps must accept an optional ?status= filter parameter."""
     import pathlib
-    src = pathlib.Path("/home/peter/dev/pr-gauntlet-py/app/main.py").read_text()
+    src = (_APP_DIR / "main.py").read_text()
     # Buggy: list_steps has no status parameter
     # Fixed: list_steps accepts status: Optional[str] = Query(default=None)
     steps_fn_start = src.find("async def list_steps(")
@@ -258,7 +261,7 @@ def test_18_chain_run(client, auth_headers, make_workflow):
 def test_19_chain_step(client, auth_headers, make_workflow):
     """Workflow must not be re-startable as 'completed' if status is never committed."""
     import pathlib
-    src = pathlib.Path("/home/peter/dev/pr-gauntlet-py/app/executor.py").read_text()
+    src = (_APP_DIR / "executor.py").read_text()
     # The chain root: final status update uses flush() not commit()
     # This means workflow stays "running" forever — the executor's final block
     # Both the status update AND its audit log are lost
@@ -271,7 +274,7 @@ def test_19_chain_step(client, auth_headers, make_workflow):
 def test_20_chain_schedule(client, auth_headers, make_workflow):
     """Audit log must record workflow_status_change event after completion."""
     import pathlib
-    src = pathlib.Path("/home/peter/dev/pr-gauntlet-py/app/executor.py").read_text()
+    src = (_APP_DIR / "executor.py").read_text()
     # Verify the root fix is present: session.commit() not session.flush() at workflow end
     assert "session.flush()  # changes staged but not committed" not in src, \
         "Chain root cause still present: session.flush() at workflow completion — change to session.commit()"
