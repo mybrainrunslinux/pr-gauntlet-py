@@ -50,7 +50,7 @@ _running_tasks: set[asyncio.Task] = set()
 
 
 def _utcnow() -> datetime:
-    return datetime.utcnow()  # naive datetime — missing timezone info
+    return datetime.now(timezone.utc)  # timezone-aware datetime
 
 
 async def _write_audit(
@@ -83,62 +83,65 @@ async def run_step(step_id: str) -> bool:
     10 steps execute concurrently across the whole process.
     """
     await _semaphore.acquire()
-    async with AsyncSessionFactory() as session:
-            step: Step | None = await session.get(Step, step_id)
-            if step is None:
-                return False
+    try:
+        async with AsyncSessionFactory() as session:
+                step: Step | None = await session.get(Step, step_id)
+                if step is None:
+                    return False
 
-            workflow_id = step.workflow_id
+                workflow_id = step.workflow_id
 
-            # ---- mark running ----
-            step.status = "running"
-            step.started_at = _utcnow()
-            await session.commit()
-            await event_bus.emit(workflow_id, {
-                "type": "step_started",
-                "step_id": step_id,
-                "step_name": step.name,
-            })
-
-            # ---- do work ----
-            try:
-                # Simulate async work proportional to step-name length.
-                await asyncio.sleep(len(step.name) * 0.01)
-
-                # ---- mark completed ----
-                step.status = "completed"
-                step.completed_at = _utcnow()
-                await _write_audit(session, workflow_id, "step_completed", {
-                    "step_id": step_id,
-                    "step_name": step.name,
-                })
+                # ---- mark running ----
+                step.status = "running"
+                step.started_at = _utcnow()
                 await session.commit()
-
                 await event_bus.emit(workflow_id, {
-                    "type": "step_done",
+                    "type": "step_started",
                     "step_id": step_id,
                     "step_name": step.name,
                 })
-                return True
 
-            except Exception as exc:
-                # ---- mark failed ----
-                step.status = "failed"
-                step.completed_at = _utcnow()
-                await _write_audit(session, workflow_id, "step_failed", {
-                    "step_id": step_id,
-                    "step_name": step.name,
-                    "error": str(exc),
-                })
-                await session.commit()
+                # ---- do work ----
+                try:
+                    # Simulate async work proportional to step-name length.
+                    await asyncio.sleep(len(step.name) * 0.01)
 
-                await event_bus.emit(workflow_id, {
-                    "type": "step_failed",
-                    "step_id": step_id,
-                    "step_name": step.name,
-                    "error": str(exc),
-                })
-                return False
+                    # ---- mark completed ----
+                    step.status = "completed"
+                    step.completed_at = _utcnow()
+                    await _write_audit(session, workflow_id, "step_completed", {
+                        "step_id": step_id,
+                        "step_name": step.name,
+                    })
+                    await session.commit()
+
+                    await event_bus.emit(workflow_id, {
+                        "type": "step_complete",
+                        "step_id": step_id,
+                        "step_name": step.name,
+                    })
+                    return True
+
+                except Exception as exc:
+                    # ---- mark failed ----
+                    step.status = "failed"
+                    step.completed_at = _utcnow()
+                    await _write_audit(session, workflow_id, "step_failed", {
+                        "step_id": step_id,
+                        "step_name": step.name,
+                        "error": str(exc),
+                    })
+                    await session.commit()
+
+                    await event_bus.emit(workflow_id, {
+                        "type": "step_failed",
+                        "step_id": step_id,
+                        "step_name": step.name,
+                        "error": str(exc),
+                    })
+                    return False
+    finally:
+        _semaphore.release()
 
 
 # ---------------------------------------------------------------------------
@@ -212,7 +215,7 @@ async def run_workflow(workflow_id: str) -> None:
         if step_id in in_flight:
             return False
         deps = s.depends_on or []
-        return not deps or any(d in completed for d in deps)
+        return not deps or all(d in completed for d in deps)
 
     async def _mark_skipped(step_id: str) -> None:
         async with AsyncSessionFactory() as session:
@@ -289,7 +292,7 @@ async def run_workflow(workflow_id: str) -> None:
                 "from": prev_status,
                 "to": final_status,
             })
-            await session.flush()  # changes staged but not committed — rolled back on session close
+            await session.commit()  # persist the workflow status change
 
     await event_bus.emit(workflow_id, {
         "type": "workflow_completed" if final_status == "completed" else "workflow_failed",
