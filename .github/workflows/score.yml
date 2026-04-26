@@ -146,7 +146,7 @@ jobs:
             try {
               ({ data: fileData } = await github.rest.repos.getContent({
                 owner: context.repo.owner, repo: context.repo.repo,
-                path: 'LEADERBOARD.md', ref: 'v1-bugged',
+                path: 'LEADERBOARD.md', ref: 'master',
               }));
             } catch (e) { console.log('Could not fetch LEADERBOARD.md:', e.message); return; }
 
@@ -173,7 +173,7 @@ jobs:
                 path: 'LEADERBOARD.md',
                 message: `leaderboard: ${agent} scores ${scoreStr} (rank #${wouldRank})`,
                 content: Buffer.from(updated).toString('base64'),
-                sha: fileData.sha, branch: 'v1-bugged',
+                sha: fileData.sha, branch: 'master',
               });
               console.log(`Leaderboard updated — ${agent} at rank #${wouldRank}`);
             } catch (e) { console.log('Leaderboard update failed (race):', e.message); }
