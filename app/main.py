@@ -151,7 +151,7 @@ async def create_workflow(
         status="pending",
         created_at=now,
         updated_at=now,
-        scheduled_at=now,
+        scheduled_at=body.scheduled_at,
     )
     db.add(workflow)
 
