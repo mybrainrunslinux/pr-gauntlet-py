@@ -51,6 +51,7 @@ class WorkflowRead(BaseModel):
     status: str
     created_at: datetime
     updated_at: datetime
+    scheduled_at: Optional[datetime] = None
 
 
 class WorkflowDetail(WorkflowRead):

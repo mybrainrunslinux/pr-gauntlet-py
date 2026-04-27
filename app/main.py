@@ -205,6 +205,7 @@ async def create_workflow(
         status=workflow.status,
         created_at=workflow.created_at,
         updated_at=workflow.updated_at,
+        scheduled_at=workflow.scheduled_at,
         steps=[StepRead.model_validate(s) for s in step_objects],
     )
 
@@ -269,6 +270,7 @@ async def get_workflow(
         status=workflow.status,
         created_at=workflow.created_at,
         updated_at=workflow.updated_at,
+        scheduled_at=workflow.scheduled_at,
         steps=[StepRead.model_validate(s) for s in steps],
     )
 
@@ -391,7 +393,7 @@ async def retry_step(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Step is in '{step.status}' state — only failed steps can be retried",
         )
-    if step.retry_count > step.max_retries:
+    if step.retry_count >= step.max_retries:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
