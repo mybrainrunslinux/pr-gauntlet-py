@@ -31,6 +31,9 @@ class Workflow(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=_utcnow, onupdate=_utcnow
     )
+    scheduled_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True, default=None
+    )
 
     steps: Mapped[list["Step"]] = relationship(
         "Step", back_populates="workflow", cascade="all, delete-orphan"
