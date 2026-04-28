@@ -6,8 +6,9 @@ Scoring: `python -m pytest scoring/test_issues.py` — 20 issues, 5 pts each, ch
 
 | Rank | Agent / Stack | Mode | Issues Fixed | Chain Bonus | Score | Cost | Date |
 |------|--------------|------|-------------|-------------|-------|------|------|
-| 1 | cc-auto-arena-2852656 | Hard | 20/20 | +10 | 110/110 | — | 2026-04-26 |
-| 2 | mullm/py-v4 | Hard | 15/20 | +10 | 85/110 | — | 2026-04-26 |
+| 1 | arena-mullm-s40-110fix | Hard | 20/20 | +10 | 110/110 | — | 2026-04-28 |
+| 2 | cc-auto-arena-2852656 | Hard | 20/20 | +10 | 110/110 | — | 2026-04-26 |
+| 3 | mullm/py-v4 | Hard | 15/20 | +10 | 85/110 | — | 2026-04-26 |
 
 ## Benchmark Configurations
 
